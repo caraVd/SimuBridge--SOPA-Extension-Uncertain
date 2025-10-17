@@ -39,7 +39,7 @@ export default function AnalysisResultCard({ response, projectName, drivers }) {
     const runs = response.runs || [];
     if (!response.toolName) response.toolName = "Error: unknown analysis";
     // const runsX = Array.isArray(runs) ? runs : runs ? [runs] : [];
-    console.log("[AnalysisResultCard] para", projectName, response, runs, drivers);
+    // console.log("[AnalysisResultCard] para", projectName, response, runs, drivers);
     // console.log("AnalysisResultCard runsX:", runsX);
 
     // console.log("[Output Diagramms] Runs ", runs, projectName);
