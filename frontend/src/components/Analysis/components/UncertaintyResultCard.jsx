@@ -1,26 +1,22 @@
-import { useMemo } from "react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import React from "react";
 import { Flex, Heading, SimpleGrid, Card, CardHeader, CardBody, Text, Select, Stack, Button, Progress, Box, Textarea, UnorderedList, ListItem, Grid, Divider, Center } from '@chakra-ui/react';
 import { BarChart } from '@mui/x-charts/BarChart';
 import { createTheme, ThemeProvider } from "@mui/material";
 
 // import { BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Legend, ResponsiveContainer } from "recharts";
-import { getFiles, getFile } from "../../../util/Storage.js";
+import { getFile } from "../../../util/Storage.js";
 import { AnalysisResultDiagrams } from "./AnalysisResultDiagrams.jsx";
 import { ConfidenceChart } from "./ConfidenceChart.jsx";
 import TornadoChart from "./TornadoChart.jsx";
-import { formatNumber, formattedToString, extractActivityCostsFromXML } from "../analysisUtils.js"
+import { formattedToString, extractActivityCostsFromXML } from "../analysisUtils.js"
 
 
 
 // XML Parser vorbereiten
 const parser = new DOMParser();
 
-// todo remove test data:
-const testCosts = [1.2, 2.3, 2.5, 3.1, 2.9, 4.0, 3.5, 2.8, 3.3, 4.1, 5.0, 3.8, 4.5, 2.7, 3.9];
-const testStats = stats(testCosts);
-const customActivityOrder = [
+const customActivityOrder = [ // todo: add activity order and/or make dynamic
     'Package_product',
     'Add_protective_filling',
     'Ship_product',
@@ -32,6 +28,7 @@ const customActivityOrder = [
     'Re-route_to_Packstation',
     'Product_delivered_sucessfully',
 ];
+
 
 // response: array of Monte Carlo run results
 export default function UncertaintyResultCard({ response, projectName, drivers }) {
@@ -94,7 +91,7 @@ export default function UncertaintyResultCard({ response, projectName, drivers }
                                 <Box flex={1} sx={{ minWidth: 212 }} h="700px">
                                     <Text fontWeight="bold">Deterministic Activities</Text>
                                     <UnorderedList mb={2}> {/* ml-4 aligns bullets nicely under heading */}
-                                        {deterministic.map(({ name, cost }) => (
+                                        {deterministic.slice().sort(sortCustom).map(({ name, cost }) => (
                                             <ListItem key={name}>
                                                 <Text>
                                                     <Text as="span" fontWeight="semibold" color="gray.500">
@@ -118,7 +115,7 @@ export default function UncertaintyResultCard({ response, projectName, drivers }
                                     <Box w="60%" height="300px" >
                                         <Text fontWeight="bold" mt={0} marginLeft={"9%"}>Results of Deterministic Simulation</Text>
                                         <ThemeProvider theme={theme}>
-                                            <SimpleBarChart results={deterministic.reduce((acc, a) => {
+                                            <SimpleBarChart results={deterministic.slice().sort(sortCustom).reduce((acc, a) => {
                                                 acc[a.name.replaceAll(/_/g, " ")] = a.cost;
                                                 return acc;
                                             }, {})} />
@@ -173,19 +170,18 @@ export default function UncertaintyResultCard({ response, projectName, drivers }
                                         )}
                                         <Box w={{ base: "100%", md: "45%" }}>
                                             <Text fontWeight="bold" mb={1}>Mean Costs with 95% Confidence Interval per Activity</Text>
-                                            <ConfidenceChart activityData={analysisResults.perAc} isDarkMode={false} />
+                                            <ConfidenceChart activityData={analysisResults.perAc.slice().sort(sortCustom)} isDarkMode={false} />
                                         </Box>
                                     </Box>
                                     <Divider mt={6} mb={6} />
                                     {/* Per activity Stats */}
                                     <Text fontWeight="bold" mb={2}>Distribution per Activity</Text>
-                                    {/* <AnalysisResultDiagrams activity={"testA"} costs={testCosts} stats={testStats} /> */}
                                     <SimpleGrid
                                         minChildWidth="400px"
                                         spacing={4}
                                     >
                                         {analysisResults.perAc.slice()
-                                            .sort((a, b) => customActivityOrder.indexOf(a.name) - customActivityOrder.indexOf(b.name))
+                                            .sort(sortCustom)
                                             .map(({ name, stats, costs }) => (
                                                 <AnalysisResultDiagrams key={name} activity={name} costs={costs} stats={stats} />
                                             ))}
@@ -202,7 +198,7 @@ export default function UncertaintyResultCard({ response, projectName, drivers }
                                                 <Text fontWeight="bold" mb={2}>Standard Error of the Mean (SEM) per Activity</Text>
                                                 <Text fontWeight="normal" mb={2}>Mean of SEM: {formattedToString(meanOfSEM(analysisResults.perAc))}</Text>
                                                 <ThemeProvider theme={theme}>
-                                                    <SimpleBarChart results={analysisResults.perAc.reduce((acc, a) => {
+                                                    <SimpleBarChart results={analysisResults.perAc.slice().sort(sortCustom).reduce((acc, a) => {
                                                         acc[a.name.replaceAll(/_/g, " ")] = a.stats.sem;
                                                         return acc;
                                                     }, {})} />
@@ -246,7 +242,7 @@ export default function UncertaintyResultCard({ response, projectName, drivers }
                             <Divider mt={6} mb={6} />
                             <Text fontWeight="bold" mb={2}>Sensitivities per Activity relative to Input Drivers </Text>
                             <Flex wrap="wrap" gap={6} mt={6}>
-                                {analysisResults.overallSensitivities !== undefined && Object.entries(analysisResults.sensitivitiesPerActivity).map(([driverName, value]) => (
+                                {analysisResults.overallSensitivities !== undefined && Object.entries(analysisResults.sensitivitiesPerActivity).sort(sortCustom).map(([driverName, value]) => (
                                     <Box w="30%" h="300px" key={driverName} mb={6} >
                                         <TornadoChart {...{ sensitivityValues: value, darkMode: false, name: driverName.replaceAll(/_/g, " ") }} />
                                     </Box>
@@ -312,7 +308,7 @@ export default function UncertaintyResultCard({ response, projectName, drivers }
                             <Text fontWeight="bold" mb={2}>First-Order (Sᵢ) vs. Total-Order (Sₜᵢ) Indices per Activity</Text>
                             {analysisResults.firstOrder && analysisResults.totalOrder &&
                                 <Flex wrap="wrap" gap={6} mt={6}>
-                                    {Object.keys(analysisResults.firstOrder).map(activityName => {
+                                    {Object.keys(analysisResults.firstOrder).sort((aName, bName) => sortCustom([aName], [bName])).map(activityName => {
                                         const chartData = createSobolComparisonDataset(
                                             activityName,
                                             analysisResults.firstOrder,
@@ -409,7 +405,7 @@ export default function UncertaintyResultCard({ response, projectName, drivers }
                             <Text fontWeight="bold" mb={2}>Driver Sensitivity Across All Activities</Text>
                             {analysisResults.firstOrderPerDriver !== undefined && Object.entries(analysisResults.firstOrderPerDriver)?.map(([driverName, activitySi]) => {
                                 // Combine Si and STi for this specific driver across all activities
-                                const combinedData = Object.entries(activitySi).map(([activity, Si]) => ({
+                                const combinedData = Object.entries(activitySi).sort(sortCustom).map(([activity, Si]) => ({
                                     driver: activity.replaceAll(/_/g, " "),
                                     Si: Si,
                                     STi: analysisResults.totalOrderPerDriver[driverName][activity] || 0, // Ensure STi is available
@@ -1139,7 +1135,23 @@ const truncatedData = (arr) => arr.map(item => {
     return item;
 });
 
-const sortCustom = ([aName], [bName]) => customActivityOrder.indexOf(aName) - customActivityOrder.indexOf(bName)
+// const sortCustom = ([aName], [bName]) => customActivityOrder.indexOf(aName) - customActivityOrder.indexOf(bName)
+
+const sortCustom = (a, b) => {
+    const aName = Array.isArray(a) ? a[0] : a.name;
+    const bName = Array.isArray(b) ? b[0] : b.name;
+    const aIndex = customActivityOrder.indexOf(aName);
+    const bIndex = customActivityOrder.indexOf(bName);
+    // sort by custom order
+    const aSortIndex = (aIndex === -1) ? customActivityOrder.length : aIndex;
+    const bSortIndex = (bIndex === -1) ? customActivityOrder.length : bIndex;
+    if (aSortIndex !== bSortIndex) {
+        return aSortIndex - bSortIndex;
+    }
+    // if indices same, fall back to alphabetical sorting
+    return aName.localeCompare(bName);
+};
+
 //#endregion Data Charting Prep
 
 
