@@ -1,5 +1,5 @@
 import { Text, Select, Flex, Button, Input, Grid, Box, Divider } from "@chakra-ui/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 // todo get this from up
 const distTypeOptions = ["uniform", "triangular", "normal", "deterministic", "lognormal"];
@@ -8,6 +8,12 @@ const DriverEditTab = ({ concreteCostDriver, onUpdate, driverEditGridSize }) => 
     const [isEditing, setIsEditing] = useState(false);
     const [editedDriver, setEditedDriver] = useState({ ...concreteCostDriver });
     const [inputValues, setInputValues] = useState({});
+
+    useEffect(() => {
+        setEditedDriver({ ...concreteCostDriver });
+        setInputValues({}); 
+        setIsEditing(false); 
+    }, [concreteCostDriver]);
 
     // console.log("DriverEditTab edClone", concreteCostDriver, editedDriver);
 

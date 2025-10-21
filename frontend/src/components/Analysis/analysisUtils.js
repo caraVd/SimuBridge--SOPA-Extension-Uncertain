@@ -63,6 +63,28 @@ export function formattedToString(value) {
 
 
 
+/**
+ * Create map of all cost drivers by Id for faster finding
+ */
+export function getConcreteCostDriverArray(abstractCostDrivers) {
+    if (!Array.isArray(abstractCostDrivers)) {
+    return [];
+  }
+  const drivers = [];
+  for (const abstractDriver of abstractCostDrivers) {
+    if (!abstractDriver.concreteCostDrivers) continue;
+    // console.log("!!!!!!!!!!!!!abstractDriver:", abstractDriver);
+    for (const concrete of abstractDriver.concreteCostDrivers) {
+
+      drivers.push({
+        ...concrete,
+        category: abstractDriver.id
+      });
+    }
+  }
+  return drivers;
+}
+
 
 function getFilesForTar(roundOfRuns, projectName, pathPrefix = "") {
     const filePromises = [];

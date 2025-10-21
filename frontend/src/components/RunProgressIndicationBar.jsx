@@ -19,7 +19,7 @@ export default function RunProgressIndicationBar({ started, finished, errored })
     progress = 100;
     color = errored ? "red" : (window.canceled ? "gray" : "green");
   }
-   console.log("RunProgressIndicationBar", progress, color, animate, started);
+  //  console.log("RunProgressIndicationBar", progress, color, animate, started);
 
  
   return (

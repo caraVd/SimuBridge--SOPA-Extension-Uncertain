@@ -1,13 +1,14 @@
 
 import { mapAbstractDriversFromConcrete } from './../../Lca/Logic/LcaDataManager';
 import seedrandom from 'seedrandom';
-import { saveDbChunk } from '../analysisUtils';
+import { saveDbChunk, getConcreteCostDriverArray } from '../analysisUtils';
 const gaussian = require('gaussian');
+
 
 //#region Main uncertainty quantification functions
 //#region MC
 const runSimpleMonteCarloSimulation = async ({
-  MC_ITERATIONS,
+  iterations,
   scenarioData,
   simulator,
   stateReports,
@@ -24,10 +25,10 @@ const runSimpleMonteCarloSimulation = async ({
 
 
   const CHUNK_SIZE = 1000;
-  const numChunks = Math.ceil(MC_ITERATIONS / CHUNK_SIZE);
+  const numChunks = Math.ceil(iterations / CHUNK_SIZE);
 
   for (let i = 0; i < numChunks; i++) {
-    const remainingIterations = MC_ITERATIONS - (i * CHUNK_SIZE);
+    const remainingIterations = iterations - (i * CHUNK_SIZE);
     const iterationsInThisChunk = Math.min(remainingIterations, CHUNK_SIZE);
     // console.log(`[MC Chunk] Processing chunk ${i + 1}/${numChunks} with ${iterationsInThisChunk} iterations.`);
     const sampleRandMatrix = createSampleMatrix(iterationsInThisChunk, driverCount, prng);
@@ -67,7 +68,7 @@ const runSimpleMonteCarloSimulation = async ({
 //#region lsa
 //Local sensitivity analysis
 const localSensAnalysis = async ({
-  MC_ITERATIONS,
+  iterations,
   scenarioData,
   simulator,
   stateReports,
@@ -78,7 +79,7 @@ const localSensAnalysis = async ({
   const abstractCostDrivers = scenarioData.environmentImpactParameters.costDrivers;
   const drivers = getConcreteCostDriverArray(abstractCostDrivers)
   const driverCount = drivers.length;
-  const sampleRandMatrix = createSampleMatrix(MC_ITERATIONS, driverCount, prng);
+  const sampleRandMatrix = createSampleMatrix(iterations, driverCount, prng);
 
   stateReports.setStarted(1);
   stateReports.started = 1;
@@ -237,16 +238,16 @@ const monteCarlo_matrix = async ({
   stateReports,
   progress_repeats = 1
 }) => {
-  console.log("[monteCarlo_matrix] called with drivers", drivers, sampleMatrix);
-  const MC_ITERATIONS = sampleMatrix[0].length;
+  // console.log("[monteCarlo_matrix] called with drivers", drivers, sampleMatrix);
+  const iterations = sampleMatrix[0].length;
   const driverCount = sampleMatrix.length;
 
-  const progressPerSimulation = Math.max(0.001, 100 / (progress_repeats * MC_ITERATIONS));
-  // console.log("[monteCarlo_matrix] progressPerSimulation", progressPerSimulation, progress_repeats, MC_ITERATIONS, stateReports.started, drivers);
+  const progressPerSimulation = Math.max(0.001, 100 / (progress_repeats * iterations));
+  // console.log("[monteCarlo_matrix] progressPerSimulation", progressPerSimulation, progress_repeats, iterations, stateReports.started, drivers);
   let completed = 0; // track finished simulations
   const simulationPromises = [];
 
-  for (let i = 0; i < MC_ITERATIONS; i++) {
+  for (let i = 0; i < iterations; i++) {
     if (stateReports.started === -1)
       return "aborted";
     const sampledDrivers = JSON.parse(JSON.stringify(drivers));
@@ -260,7 +261,7 @@ const monteCarlo_matrix = async ({
       .then(result => {
         completed++;
         // Update progress when this simulation finishes
-        const progress = (completed / MC_ITERATIONS) * 100;
+        const progress = (completed / iterations) * 100;
         // console.log("[monteCarlo_matrix] progress", completed, progress, stateReports.started, progressPerSimulation, stateReports.started + progressPerSimulation,);
         try {
           stateReports.started = stateReports.started + progressPerSimulation
@@ -283,7 +284,7 @@ const monteCarlo_matrix = async ({
       })
       .catch(err => {
         completed++;
-        const progress = (completed / MC_ITERATIONS) * 100;
+        const progress = (completed / iterations) * 100;
         try {
           stateReports.setStarted(stateReports.started);
           stateReports.started = stateReports.started + progressPerSimulation
@@ -404,7 +405,7 @@ function createSobolC(matrixA, matrixB, j) {
  * Maps one row of the sampleRandMatrix to a distribution and the other rows to their deterministic value/mean
 */
 const createSensitivitySampleMatrixMapping = (sampleRandMatrix, varyingDriverIndex, drivers) => {
-  const MC_ITERATIONS = sampleRandMatrix[0].length;
+  const iterations = sampleRandMatrix[0].length;
   const driverCount = drivers.length;
 
   const lsaSampleMatrix = [];
@@ -419,7 +420,7 @@ const createSensitivitySampleMatrixMapping = (sampleRandMatrix, varyingDriverInd
     } else {
       // Fix drivers at mean values
       const meanValue = drivers[i].cost.mean;
-      lsaSampleMatrix.push(Array(MC_ITERATIONS).fill(meanValue));
+      lsaSampleMatrix.push(Array(iterations).fill(meanValue));
 
     }
 
@@ -514,24 +515,6 @@ function filterRunResults(runObjects) {
   return runObjects;
 }
 
-/**
- * Create map of all cost drivers by Id for faster finding
- */
-function getConcreteCostDriverArray(abstractCostDrivers) {
-  const drivers = [];
-  for (const abstractDriver of abstractCostDrivers) {
-    if (!abstractDriver.concreteCostDrivers) continue;
-    // console.log("!!!!!!!!!!!!!abstractDriver:", abstractDriver);
-    for (const concrete of abstractDriver.concreteCostDrivers) {
-
-      drivers.push({
-        ...concrete,
-        category: abstractDriver.id
-      });
-    }
-  }
-  return drivers;
-}
 //#endregion data processing
 
 //#region Exported functions

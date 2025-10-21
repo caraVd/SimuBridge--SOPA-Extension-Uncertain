@@ -5,19 +5,19 @@ import { runSimpleMonteCarloSimulation, localSensAnalysis, runSobolGSA, filterRu
 import { saveDbChunk, deleteProjectData } from '../analysisUtils';
 
 //#region main entry point
-// This is the main entry point called from AnalysisPage to run the selected analysis
+// This is the main entry point called from UncertaintyPage to run the selected analysis
 export const runMultipleSimulations = async ({
   scenarioName,
-  mcIterations: MC_ITERATIONS,
+  iterations,
   getData,
   projectName,
   stateReports,
   cancelToken,
   toolName
 }) => {
-  console.log("[simulationRunner] runMultipleSimulations(): called with scenarioName", scenarioName, "and mc iterations", MC_ITERATIONS);
+  // console.log("[simulationRunner] runMultipleSimulations(): called with scenarioName", scenarioName, "and mc iterations", MC_ITERATIONS);
   let variants = getData().getCurrentScenario().environmentImpactParameters.variants;
-  console.log("[simulationRunner] runMultipleSimulations(): start simulation, Vaiants:", variants)
+  // console.log("[simulationRunner] runMultipleSimulations(): start simulation, Vaiants:", variants)
   if (variants.reduce((sum, variant) => sum + parseInt(variant.frequency), 0) !== 100) ///todo: If variants have  decimals the sum check will fail
   {
     stateReports.toasting("error", "Frequencies sum is not 100%", "For correct simulation, the sum of frequencies must be 100%");
@@ -37,7 +37,7 @@ export const runMultipleSimulations = async ({
       chunkInfo: {},
       finished: null,
       durationMs: null,
-      iterations: MC_ITERATIONS,
+      iterations,
       driverCount: scenarioData.environmentImpactParameters.costDrivers.length
     };
     simulationResults.toolName = toolName;
@@ -47,19 +47,19 @@ export const runMultipleSimulations = async ({
 
     switch (toolName) {
       case "monte carlo":
-        console.log("runSimpleMonteCarloSimulation with scenarioData", scenarioData, "and mc iterations", MC_ITERATIONS);
-        simulationResults.chunkInfo = await runSimpleMonteCarloSimulation({ MC_ITERATIONS, scenarioData, simulator, stateReports, seed, projectName });
+        console.log("runSimpleMonteCarloSimulation with scenarioData", scenarioData, "and mc iterations", iterations);
+        simulationResults.chunkInfo = await runSimpleMonteCarloSimulation({ iterations, scenarioData, simulator, stateReports, seed, projectName });
         console.log("simulation mc Run completed");
         break;
       case "local SA":
-        console.log("localSensAnalysis with scenarioData", scenarioData, "and mc iterations", MC_ITERATIONS);
-        simulationResults.chunkInfo = await localSensAnalysis({ MC_ITERATIONS, scenarioData, simulator, stateReports, seed, projectName });
+        console.log("localSensAnalysis with scenarioData", scenarioData, "and mc iterations", iterations);
+        simulationResults.chunkInfo = await localSensAnalysis({ iterations, scenarioData, simulator, stateReports, seed, projectName });
         console.log("simulation local SA Run completed",);
         break;
 
       case "sobol GSA":
-        console.log("[analysisLogic] sobol GSA with scenarioData", scenarioData, "and mc iterations", MC_ITERATIONS);
-        simulationResults.chunkInfo = await runSobolGSA({ iterations: MC_ITERATIONS, abstractDrivers: scenarioData.environmentImpactParameters.costDrivers, simulator, stateReports, seed, projectName })
+        console.log("[analysisLogic] sobol GSA with scenarioData", scenarioData, "and mc iterations", iterations);
+        simulationResults.chunkInfo = await runSobolGSA({ iterations: iterations, abstractDrivers: scenarioData.environmentImpactParameters.costDrivers, simulator, stateReports, seed, projectName })
         console.log("simulation sobol GSA completed",);
         break;
       case "deterministic":
@@ -90,8 +90,8 @@ export const runMultipleSimulations = async ({
     stateReports.setStarted(100)
     stateReports.setFinished(true);
 
-    stateReports.toasting("success", "Monte Carlo Simulation", `Completed ${MC_ITERATIONS} simulations in ${simulationResults.durationMs} ms`)
-    console.log("[simulationRunner] runMultipleSimulations(): Simulation Results:", simulationResults);
+    stateReports.toasting("success", "Monte Carlo Simulation", `Completed ${iterations} simulations in ${simulationResults.durationMs} ms`)
+    // console.log("[simulationRunner] runMultipleSimulations(): Simulation Results:", simulationResults);
     await saveDbChunk(projectName, 'analysisResults', simulationResults);
 
     stateReports.toasting("success", "Success", "Analysis was successful");
@@ -140,7 +140,7 @@ function createSimulator(scenarioData, scenarioName, stateReports, cancelToken, 
 // function to call the simulation API in scylla
 const simulate = async (globalConfig, simConfig, scenarioName, processModel, bpmn, stateReports, cancelToken, projectName) => {
   // Resetting response and finished states
-  stateReports.setResponse({ message: "", files: [] });
+  // stateReports.setResponse({ message: "", files: [] });
   stateReports.setErrored(false);
 
   // console.log("[simulate] called with", globalConfig, simConfig, scenarioName, processModel);

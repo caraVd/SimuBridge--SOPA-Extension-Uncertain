@@ -4,15 +4,15 @@ import {
 } from "@chakra-ui/react";
 import { useState, useEffect } from "react";
 import { downloadFile } from "../util/Storage";
-import {downloadAllRunsAsTar} from "./Analysis/analysisUtils";
+import { downloadAllRunsAsTar, formattedToString } from "./Analysis/analysisUtils";
 import FolderUploadButton from "./Analysis/components/FolderUploadButton";
 
 
 
-export default function ToolRunOutputCard({ 
-    projectName, response, toolName, processName, 
-    filePrefix, setResponse, setToolName, durationMs, 
-    toasting, 
+export default function ToolRunOutputCard({
+    projectName, response, toolName, processName,
+    filePrefix, setResponse, setToolName, durationMs,
+    toasting,
     drivers, iterations, onUploadComplete }) {
     const initialVisible = 3; // show first 3 runs by default
     const [showAll, setShowAll] = useState(false);
@@ -30,13 +30,13 @@ export default function ToolRunOutputCard({
     }, [toolName, response, response?.length]);
 
     let runs = Array.isArray(response) ? response : response ? [response] : [];
-    // if(response) console.log("[ToolRunOutputCard] start:", projectName, response, toolName, runs, showAll);
+    // if (response) console.log("[ToolRunOutputCard] start:", projectName, response, toolName, runs, showAll);
     if (runs.length === 1)
         response = runs[0];
 
-    //#region Zip upload/download handling
+    //#region upload/download handling
     const folderUpload = (parsedResults) => {
-        // console.log("Uploaded ZIP and parsed results:", parsedResults);
+        // console.log("Uploaded tar and parsed results:", parsedResults);
         if (parsedResults.toolName === "local SA Analysis" || parsedResults.toolName === "local SA") {
             response = parsedResults.results;
         } else if (parsedResults.toolName === "sobol GSA Analysis" || parsedResults.toolName === "sobol GSA") {
@@ -57,9 +57,9 @@ export default function ToolRunOutputCard({
 
     }
 
-    async function downloadAllRunsAsZip(projectName, responses) {
-        // console.log("[downloadAllRunsAsZip] start:", projectName, responses, toolName, iterations);
-        downloadAllRunsAsTar(projectName, responses, toolName,durationMs,drivers, toasting, iterations, response.requestId);
+    async function folderDownloadHandling(projectName, responses) {
+        // console.log("[folderDownloadHandling] start:", projectName, responses, toolName, iterations);
+        downloadAllRunsAsTar(projectName, responses, toolName, durationMs, drivers, toasting, iterations, response.requestId);
     }
 
     //#endregion
@@ -68,12 +68,14 @@ export default function ToolRunOutputCard({
     // Component to render runs inside an accordion (can be reused for different nesting structures)
     const AccordionRunsPanel = ({ runs, showAllRuns }) => (
         <Accordion allowMultiple>
-            {(showAllRuns ? (runs || []) : (runs || []).slice(0, initialVisible)).map((res, idx) => (  //  show only initialVisible unless showAll
-                <AccordionItem key={res.requestId || idx} border="1px solid #ddd" borderRadius="md" mb={2}>
+            {(showAllRuns ? (runs || []) : (runs || []).slice(0, initialVisible)).map((res, idx) => ( //  show only initialVisible unless showAll
+                <AccordionItem key={res.requestId || res.fileName || idx} border="1px solid #ddd" borderRadius="md" mb={2}>
                     <h2>
                         <AccordionButton>
                             <Heading size="sm" flex="1" textAlign="left">
-                                Run {idx + 1} {res.finished && `[${new Date(res.finished).toLocaleString()}]`}
+                                {/* Use fileName if it exists, otherwise use Run # */}
+                                {res.fileName ? res.fileName : `Run ${idx + 1}`}
+                                {res.finished && ` [${new Date(res.finished).toLocaleString()}]`}
                             </Heading>
                             <AccordionIcon />
                         </AccordionButton>
@@ -85,9 +87,10 @@ export default function ToolRunOutputCard({
                                 <Textarea isDisabled value={res.message} />
                             </>
                         )}
+                        {/* Display result data as files */}
                         {res.files && (
                             <>
-                                <Heading size="xs">Returned Files:</Heading>
+                                <Heading size="xs" mt={res.message ? 4 : 0}>Returned Files:</Heading>
                                 <UnorderedList>
                                     {res.files.map((fileName, fIdx) => (
                                         <ListItem key={fIdx}>
@@ -107,6 +110,32 @@ export default function ToolRunOutputCard({
                                 </UnorderedList>
                             </>
                         )}
+
+                        {/* Display result data as extracted paramters */}
+                        {res.extractedData && (
+                            <>
+                                <Heading
+                                    size="sm"
+                                    fontWeight={"semibold"}
+                                    mt={res.message || res.files ? 4 : 0}
+                                    mb={2}
+                                    textDecoration={"underline"}
+                                >
+                                    Extracted Data:
+                                </Heading>
+                                <UnorderedList spacing={1}>
+                                    {Object.entries(res.extractedData).map(([key, value]) => (
+                                        <ListItem key={key}>
+                                            <Text size="xs" as="span">
+                                                <Text as="span" fontWeight="semibold">{key.replace(/_/g, ' ')}:</Text>{' '}{formattedToString(value)}
+                                            </Text>
+                                        </ListItem>
+                                    ))}
+                                </UnorderedList>
+                            </>
+                        )}
+
+
                     </AccordionPanel>
                 </AccordionItem>
             ))}
@@ -133,9 +162,9 @@ export default function ToolRunOutputCard({
     return <Card bg="white">
         <CardHeader display="flex" alignItems="center" justifyContent="space-between">
             <Heading size='md'> Last <em color="var(--chakra-colors-gray-500)">{toolName} Analysis</em> Run Output {response && response.finished && `[${new Date(response.finished).toLocaleString()}]`}</Heading>
-            {toolName === "monte carlo" || toolName === "sobol GSA" || toolName === "local SA" ? (
+            {toolName !== "Miner" ? (
                 <FolderUploadButton onUpload={folderUpload} projectName={projectName} size="sm" />
-            )   : null}
+            ) : null}
         </CardHeader>
         <CardBody>
 
@@ -172,7 +201,7 @@ export default function ToolRunOutputCard({
                                     </Button>
                                 )}
 
-                                <Button colorScheme="blue" onClick={() => downloadAllRunsAsZip(projectName, runs)}>
+                                <Button colorScheme="blue" onClick={() => folderDownloadHandling(projectName, runs)}>
                                     Download All Runs
                                 </Button>
                             </Flex>
@@ -214,7 +243,7 @@ export default function ToolRunOutputCard({
                             ))}
                         </Accordion>
                         <Flex mt={4} mr={4} gap={4} justifyContent="right" flexWrap="wrap">
-                            <Button colorScheme="blue" onClick={() => downloadAllRunsAsZip(projectName, response)}>
+                            <Button colorScheme="blue" onClick={() => folderDownloadHandling(projectName, response)}>
                                 Download All Runs
                             </Button>
                         </Flex>
@@ -279,7 +308,7 @@ export default function ToolRunOutputCard({
                             ))}
                         </Accordion>
                         <Flex mt={4} mr={4} gap={4} justifyContent="right" flexWrap="wrap">
-                            <Button colorScheme="blue" onClick={() => downloadAllRunsAsZip(projectName, response)}>
+                            <Button colorScheme="blue" onClick={() => folderDownloadHandling(projectName, response)}>
                                 Download All Runs
                             </Button></Flex>
                     </>

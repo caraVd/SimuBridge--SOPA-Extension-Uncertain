@@ -10,7 +10,7 @@ import OverviewPage from './components/Overview/OverviewPage';
 import OnlyDifferencesPage from './components/Comparison/OnlyDifferencesPage'
 import ModelbasedParametersTable from './components/ModelbasedParameters/ModelbasedParametersTable';
 import SimulationPage from './components/Simulation/SimulationPage';
-import AnalysisPage from './components/Analysis/AnalysisPage';
+import UncertaintyPage from './components/Analysis/UncertaintyPage';
 import ProcessMinerPage from './components/Processminer/ProcessMinerPage'
 import DebugPage from './components/Debug/DebugPage';
 import ComparePage from "./components/Comparison/ComparePage";
@@ -321,7 +321,7 @@ useEffect(() => {
               <Route path="/simulation" element={<SimulationPage path="/simulation"  {...{projectName, getData, toasting }} />} />
               <Route path="/processminer" element={<ProcessMinerPage path="/processminer" {...{projectName, getData, toasting }} />} />
               <Route path="/lcaintegration" element={<LcaIntegration path="/lcaintegration" {...{projectName, getData, toasting }} />} />
-              <Route path="/analysis" element={<AnalysisPage path="/analysis"  {...{projectName, getData, toasting }} />} />
+              <Route path="/analysis" element={<UncertaintyPage path="/analysis"  {...{projectName, getData, toasting }} />} />
               <Route path="/visualizer" element={<OutputVisualizerPage path="/visualizer" {...{projectName, getData, toasting }} />} />
               <Route path="/debug" element={<DebugPage path="/debug" {...{projectName, getData, toasting }} />} />
               <Route path='*' element={<Navigate to='/overview' />} />
