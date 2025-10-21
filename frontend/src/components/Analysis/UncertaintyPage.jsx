@@ -8,15 +8,15 @@ import { FiChevronDown } from 'react-icons/fi';
 import RunProgressIndicationBar from "../RunProgressIndicationBar";
 import ToolRunOutputCard from "../ToolRunOutputCard";
 import DriverEditTab from "./components/DriverEditTab";
-import CostCharts from "./components/AnalysisResultCard";
+import CostCharts from "./components/UncertaintyResultCard";
 
 import { runMultipleSimulations } from './logic/simulationRunner';
-import { getConcreteCostDriverArray } from './logic/analysisLogic'
-import AnalysisResultCard from "./components/AnalysisResultCard";
-import { saveAllCostDrivers, mapAbstractDriversFromConcrete } from "../../components/Lca/Logic/LcaDataManager";
+import { getConcreteCostDriverArray } from './analysisUtils'
+import UncertaintyResultCard from "./components/UncertaintyResultCard";
+import { saveAllCostDrivers, mapAbstractDriversFromConcrete } from "../Lca/Logic/LcaDataManager";
 
 
-const AnalysisPage = ({ projectName, getData, toasting }) => {
+const UncertaintyPage = ({ projectName, getData, toasting }) => {
 
   const [started, setStarted] = useState(false);
   const [finished, setFinished] = useState(false);
@@ -30,9 +30,14 @@ const AnalysisPage = ({ projectName, getData, toasting }) => {
   const [simulator, setSimulator] = useState();
   const [simulationDriverSettings, setSimulationDriverSettings] = useState(getData().getCurrentScenario().environmentImpactParameters.costDrivers);
 
-  const [toolName, setToolName] = useState();
+  const [selectToolName, setSelectToolName] = useState();
   const [analysisTypes, setAnalysisTypes] = useState(["deterministic", "monte carlo", "local SA", "sobol GSA"]);
-  const [mcIterations, setMcIterations] = useState(5);
+  const [selectedIterations, setSelectedIterations] = useState(100);
+
+  const [resToolName, setResToolName] = useState();
+  const [resAnalysisTypes, setResAnalysisTypes] = useState(["deterministic", "monte carlo", "local SA", "sobol GSA"]);
+  const [resIterations, setResIterations] = useState(100);
+
 
   const driverEditGridSize = "220px 150px 400px 100px";
   const source = useRef(null);
@@ -47,7 +52,7 @@ const AnalysisPage = ({ projectName, getData, toasting }) => {
 
   const handleDriverUpdate = (abstractIndex, concreteIndex, updatedDriver) => {
     setSimulationDriverSettings((prevAC) => {
-     
+      console.log("handleDriverUpdate: updatedDriver", updatedDriver);
       const newAbstractSettings = structuredClone(simulationDriverSettings);
       // console.log("handleDriverUpdate: prevAC", prevAC, newAbstractSettings);
       newAbstractSettings[abstractIndex].concreteCostDrivers[concreteIndex] = updatedDriver;
@@ -65,9 +70,29 @@ const AnalysisPage = ({ projectName, getData, toasting }) => {
     });
   };
 
-  // const MC_ITERATIONS = 5; // Set number of MC iterations here
+  // Overwrite all drivers Input: abstract -> output: abstract
+  const overwriteAllDrivers = (newDriversStructure) => {
+    if (!Array.isArray(newDriversStructure) || newDriversStructure.length === 0) {
+      console.warn("[overwriteAllDrivers] Skipping overwrite: Input was empty, null, or invalid.", newDriversStructure);
+      return;
+    }
+    setSimulationDriverSettings(() => {
+      console.log("[overwriteAllDrivers] newDriversStructure", newDriversStructure);
+      const allConcreteDrivers = getConcreteCostDriverArray(newDriversStructure); //Flatten abstract to plain concrete
+      const rebuiltAbstractDrivers = mapAbstractDriversFromConcrete(allConcreteDrivers); // rebuild moddle abstract structure
+      console.log("[overwriteAllDrivers] rebuiltAbstractDrivers", newDriversStructure, rebuiltAbstractDrivers);
+      saveAllCostDrivers(
+        rebuiltAbstractDrivers,
+        getData().getCurrentScenario().environmentImpactParameters.calcType,
+        getData
+      );
+
+      return rebuiltAbstractDrivers;
+    });
+  };
+
   const start = async () => {
-    // console.log("Iteration", mcIterations);
+    // console.log("Iteration", selectedIterations);
     const stateReports = { 'toasting': toasting, 'setResponse': setResponse, 'setStarted': setStarted, 'setFinished': setFinished, 'setErrored': setErrored, 'started': started }
     // console.log("sim drivers", simulationDriverSettings)
     const currentScenario = getData().getCurrentScenario();
@@ -76,12 +101,12 @@ const AnalysisPage = ({ projectName, getData, toasting }) => {
 
     await runMultipleSimulations({
       scenarioName,
-      mcIterations,
+      iterations: selectedIterations,
       getData,
       projectName,
       stateReports,
       cancelToken: source.current.token,
-      toolName
+      toolName: selectToolName
     });
 
     const finalResults = await loadLargeAnalysis(projectName);
@@ -113,7 +138,7 @@ const AnalysisPage = ({ projectName, getData, toasting }) => {
     setResponse({ message: "canceled" });
   };
 
-
+  //#region Return 
   return (
     <Box h="93vh" overflowY="auto" p="5" >
       <Stack gap="2">
@@ -136,7 +161,7 @@ const AnalysisPage = ({ projectName, getData, toasting }) => {
             {simulationDriverSettings.map((abstractDriver, abstractIndex) =>
               abstractDriver.concreteCostDrivers.map((concreteDriver, concreteIndex) => (
                 <DriverEditTab
-                  key={`${abstractIndex}-${concreteIndex}`}
+                  key={`${concreteDriver.id}`}
                   driverEditGridSize={driverEditGridSize}
                   concreteCostDriver={concreteDriver}
 
@@ -146,6 +171,8 @@ const AnalysisPage = ({ projectName, getData, toasting }) => {
                 />
               ))
             )}
+
+            <Text fontSize="xs" color="#c5d2d3ff" fontWeight="light" textAlign="left" mt="2">Warning: Updating the some cost parameters will not change automatically change the others witch in case of the mean may lead to faulty normalization. </Text>
 
           </CardBody>
           <CardHeader>
@@ -161,7 +188,7 @@ const AnalysisPage = ({ projectName, getData, toasting }) => {
             >
               <Box>
                 <Text fontSize="s" textAlign="start" color="#485152" fontWeight="bold" > Select Analysis:</Text>
-                <Select value={toolName} placeholder='choose analysis' width='100%' {...(!toolName && { color: "gray" })} backgroundColor='white' icon={<FiChevronDown />} onChange={evt => setToolName(evt.target.value)}>
+                <Select value={selectToolName} placeholder='choose analysis' width='100%' {...(!selectToolName && { color: "gray" })} backgroundColor='white' icon={<FiChevronDown />} onChange={evt => setSelectToolName(evt.target.value)}>
                   {
                     analysisTypes.map((type, index) => {
                       return <option value={type} color="black">{type}</option>
@@ -169,15 +196,15 @@ const AnalysisPage = ({ projectName, getData, toasting }) => {
                   }
                 </Select>
               </Box>
-              {toolName !== "deterministic" && (
+              {selectToolName !== "deterministic" && (
                 <Box mt={4}>
                   <Text fontSize="s" textAlign="start" color="#485152" fontWeight="bold">
                     Select Iterations:
                   </Text>
                   <Input
                     type="number"
-                    value={mcIterations}
-                    onChange={(e) => setMcIterations(parseInt(e.target.value) || 1)}
+                    value={selectedIterations}
+                    onChange={(e) => setSelectedIterations(parseInt(e.target.value) || 1)}
                     min={1}
                     max={10000} // optional upper limit
                     backgroundColor="white"
@@ -211,8 +238,8 @@ const AnalysisPage = ({ projectName, getData, toasting }) => {
                     <Text color="RGBA(0, 0, 0, 0.64)" fontWeight="bold">Abort Simulation</Text>
                   </Button>
                 )}
-
-              <Text fontSize="s" textAlign="start" > Results?:  {JSON.stringify(started)}</Text>
+              {typeof started === 'number' && (<Text fontSize="s" textAlign="start">Progress: {started.toFixed(0)}%</Text>)}
+              {/* <Text fontSize="s" textAlign="start" > Results?:  {JSON.stringify(started)}</Text> */}
               {/* .toFixed(2) */}
 
 
@@ -222,13 +249,13 @@ const AnalysisPage = ({ projectName, getData, toasting }) => {
         {/* #region Header Section */}
         <RunProgressIndicationBar {...{ started, finished, errored }} />
         <ToolRunOutputCard {...{
-          projectName, response: response.runs, toolName: toolName,
-          processName: 'simulation', filePrefix: response.requestId, 'setResponse': setResponse, 'setToolName': setToolName, 'durationMs': response.durationMs,
-          toasting, 'drivers': simulationDriverSettings, 'iterations': mcIterations, onUploadComplete: handleAfterUpload
+          projectName, response: response.runs, toolName: resToolName,
+          processName: 'uncertainty', filePrefix: response.requestId, 'setResponse': setResponse, 'setToolName': setResToolName, 'durationMs': response.durationMs,
+          toasting, 'drivers': simulationDriverSettings, 'iterations': resIterations, onUploadComplete: handleAfterUpload
         }} />
         {/* <Text fontSize="s" textAlign="start" > Help: {JSON.stringify(response) }</Text> */}
         {response && response.runs && ((response.runs.length > 0) || response.runs.sobolResults) &&
-          <AnalysisResultCard {... { response: response, projectName: projectName, drivers: getConcreteCostDriverArray(simulationDriverSettings) }} />
+          <UncertaintyResultCard {... { response: response, projectName: projectName, drivers: getConcreteCostDriverArray(simulationDriverSettings) }} />
         }
         {/* #endregion */}
 
@@ -237,7 +264,9 @@ const AnalysisPage = ({ projectName, getData, toasting }) => {
     </Box>
   )
 
+  //#endregion return
 
+  //#region load file data
   async function loadLargeAnalysis(projectName) {
     // Fetch all chunks for given project in one go
     const allChunks = await db.chunks.where({ projectName }).toArray();
@@ -252,13 +281,18 @@ const AnalysisPage = ({ projectName, getData, toasting }) => {
     if (!mainResultChunk) return {}; // Metadata is missing
 
     const sessionResults = mainResultChunk.data;
+    console.log("[loadLargeAnalysis] sessionResults:", sessionResults);
+
+    const loadedToolName = sessionResults.toolName;
+    if (!loadedToolName) {
+      console.log("[loadLargeAnalysis] db results missing toolName. Loading skipped.");
+      return {};}
 
     // Rebuild full object from fetched chunks
     const detRuns = sessionResults.runs;
-    const toolName = sessionResults.toolName; // todo load all from db
     const chunkInfo = sessionResults.chunkInfo;
     const concDrivers = getConcreteCostDriverArray(sessionResults.driversStructure || simulationDriverSettings);
-    const driverCount = concDrivers.length;
+    const driverCount = sessionResults.driversStructure?.length || concDrivers?.length;
 
     let runs = {};
     // console.log("[loadLargeAnalysis] projectName:", projectName, driverCount, toolName,);
@@ -266,7 +300,7 @@ const AnalysisPage = ({ projectName, getData, toasting }) => {
     // find chunk data from pre-fetched array
     const findChunkData = (key) => allChunks.find(c => c.key === key)?.data;
 
-    switch (toolName) {
+    switch (loadedToolName) {
       case 'sobol GSA': {
         runs.aMatrix = findChunkData('aMatrix') || [];
         runs.bMatrix = findChunkData('bMatrix') || [];
@@ -335,18 +369,24 @@ const AnalysisPage = ({ projectName, getData, toasting }) => {
     }
 
     const results = {
-      toolName,
+      toolName: loadedToolName,
       finished: sessionResults.finished,
       durationMs: sessionResults.durationMs,
+      iterations: sessionResults.iterations,
       runs
     };
-    setToolName(toolName);
+    overwriteAllDrivers(sessionResults.driversStructure);
+    // setToolName(toolName);
+    // setSelectedIterations(sessionResults.selectedIterations);
+    setResToolName(loadedToolName);
+    setResIterations(sessionResults.iterations);
     console.log("[loadLargeAnalysis] results:", results);
     return results;
   }
+  //#endregion load file data
 }
 
-export default AnalysisPage;
+export default UncertaintyPage;
 
 
 

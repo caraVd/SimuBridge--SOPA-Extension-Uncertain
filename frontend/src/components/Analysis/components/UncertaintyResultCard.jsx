@@ -10,7 +10,7 @@ import { getFiles, getFile } from "../../../util/Storage.js";
 import { AnalysisResultDiagrams } from "./AnalysisResultDiagrams.jsx";
 import { ConfidenceChart } from "./ConfidenceChart.jsx";
 import TornadoChart from "./TornadoChart.jsx";
-import { formatNumber, formattedToString, extractActivityCostsFromXML } from "./../analysisUtils.js"
+import { formatNumber, formattedToString, extractActivityCostsFromXML } from "../analysisUtils.js"
 
 
 
@@ -34,13 +34,13 @@ const customActivityOrder = [
 ];
 
 // response: array of Monte Carlo run results
-export default function AnalysisResultCard({ response, projectName, drivers }) {
+export default function UncertaintyResultCard({ response, projectName, drivers }) {
 
     const runs = response.runs || [];
     if (!response.toolName) response.toolName = "Error: unknown analysis";
     // const runsX = Array.isArray(runs) ? runs : runs ? [runs] : [];
-    // console.log("[AnalysisResultCard] para", projectName, response, runs, drivers);
-    // console.log("AnalysisResultCard runsX:", runsX);
+    // console.log("[UncertaintyResultCard] para", projectName, response, runs, drivers);
+    // console.log("UncertaintyResultCard runsX:", runsX);
 
     // console.log("[Output Diagramms] Runs ", runs, projectName);
     const [allRuns, setAllRuns] = useState([]);
@@ -53,14 +53,14 @@ export default function AnalysisResultCard({ response, projectName, drivers }) {
         async function processRuns() {
             if (response.toolName === "monte carlo" || response.toolName === "deterministic") {
                 await processMCRuns(runs, projectName, setDeterministic, setAnalysisResults);
-                console.log("AnalysisResultCard runs processed MC");
+                console.log("UncertaintyResultCard runs processed MC");
 
             } else if (response.toolName === "local SA") {
                 await processLSARuns(runs, projectName, setAnalysisResults, drivers);
-                console.log("AnalysisResultCard runs processed LSA");
+                console.log("UncertaintyResultCard runs processed LSA");
             } else if (response.toolName === "sobol GSA") {
                 await processSobolRuns(runs, projectName, setAnalysisResults, drivers);
-                console.log("AnalysisResultCard runs processed Sobol GSA");
+                console.log("UncertaintyResultCard runs processed Sobol GSA");
             }
             else {
                 console.log("Unknown analysis type:", response.toolName);
@@ -74,7 +74,7 @@ export default function AnalysisResultCard({ response, projectName, drivers }) {
 
     React.useEffect(() => {
         // console.log("Deterministic updated:", deterministic);
-        // console.log("[AnalysisResultCard] Non-Deterministic updated:", analysisResults);
+        // console.log("[UncertaintyResultCard] Non-Deterministic updated:", analysisResults);
     }, [deterministic, analysisResults]);
     const theme = createTheme();
 
@@ -83,7 +83,7 @@ export default function AnalysisResultCard({ response, projectName, drivers }) {
     return (
         <Card bg="white">
             <CardHeader>
-                <Heading size='md'>Analysis Results ({response.toolName} {formatDuration(response.durationMs)})</Heading>
+                <Heading size='md'>Analysis Results ({response.toolName}, {formatDuration(response.durationMs)}, Iterations: {response.iterations})</Heading>
             </CardHeader>
             <CardBody>
                 <Flex direction="column" gap={6}>
